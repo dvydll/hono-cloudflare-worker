@@ -10,20 +10,16 @@ const app = new Hono<AppEnv>()
 	/**
 	 * Configuración de la aplicación.
 	 * Permite usar middlewares globales.
-	 *
-	 * En este caso, validar que en el query string venga
-	 * el id de la instancia para disponibilizar el contexto
-	 * de la base de datos en todos los endpoints.
 	 */
 	.use(cors())
 
 	/**
 	 * Rutas a los diferentes endpoints de la API.
-	 *
-	 * Es imprescindible el `prefix` y debe coincidir con la ruta
-	 * especificada en el archivo de definición de la lambda de `serverless.yml`.
 	 */
 	.route('/api', api)
+	.get('/', (c) => {
+		return c.html('<h1>Hola mundo!</h1>');
+	})
 
 	/**
 	 * Si busca una ruta que no existe, se lanza una respuesta 404.
