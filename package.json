@@ -1,14 +1,15 @@
 {
-  "name": "hono-cloudflare-worker",
-  "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy --minify"
-  },
-  "dependencies": {
-    "hono": "^4.7.2"
-  },
-  "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250214.0",
-    "wrangler": "^3.109.2"
-  }
+	"name": "hono-cf-worker-template",
+	"scripts": {
+		"dev": "wrangler dev",
+		"deploy": "wrangler deploy --minify"
+	},
+	"dependencies": {
+		"@libsql/client": "^0.14.0",
+		"hono": "^4.7.2"
+	},
+	"devDependencies": {
+		"@cloudflare/workers-types": "^4.20250214.0",
+		"wrangler": "^3.109.2"
+	}
 }

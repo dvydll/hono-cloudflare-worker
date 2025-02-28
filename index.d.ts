@@ -1,12 +1,22 @@
-declare module 'hono-cloudflare-worker' {
+declare module 'hono-cf-worker-template' {
+	import type { Client as LibsqlClient } from '@libsql/client/web';
+
+	type UUID = `${string}-${string}-${string}-${string}`;
+
 	export type Bindings = {
 		PORT: number;
-		API_URL: string;
-		API_KEY: string;
+		TURSO_URL: string;
+		TURSO_AUTH_TOKEN: string;
+	};
+
+	export type Variables = {
+		tursoClient: LibsqlClient;
+		traceId: UUID;
+		title?: string;
 	};
 
 	export type AppEnv = {
 		Bindings: Bindings;
-		Variables: {};
+		Variables: Variables;
 	};
 }

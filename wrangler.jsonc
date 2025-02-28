@@ -1,6 +1,6 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "hono-cloudflare-worker",
+	"name": "hono-cf-worker-template",
 	"main": "src/index.ts",
 	"compatibility_date": "2025-02-26",
 	// "compatibility_flags": [
