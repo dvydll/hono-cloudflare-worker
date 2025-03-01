@@ -1,12 +1,24 @@
+import { zValidator } from '@hono/zod-validator';
 import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import { HTTPException } from 'hono/http-exception';
+import { logger } from 'hono/logger';
+import { timeout } from 'hono/timeout';
+import { z } from 'zod';
 
 import type { AppEnv } from 'hono-cf-worker-template';
-import { cors } from 'hono/cors';
+import type { Element } from './schemas/index';
+
 import { traceIdMiddleware } from './middlewares/trace-id.middleware';
 import {
 	getTursoClient,
 	tursoClient,
 } from './middlewares/turso-client.middleware';
+import { DbService } from './services/db-service';
+
+const idSchema = z.object({
+	id: z.string().regex(/^\d+$/, { message: 'El id debe ser un número.' }),
+});
 
 export const api = new Hono<AppEnv>()
 
@@ -14,33 +26,34 @@ export const api = new Hono<AppEnv>()
 	 * Configuración de la API.
 	 * Permite usar middlewares comunes en toda la API.
 	 */
+	.use(logger())
 	.use(cors())
+	.use(timeout(5000, new HTTPException(504, { message: 'Gateway Timeout' })))
 	.use(traceIdMiddleware)
 	.use(tursoClient())
 
 	/**
 	 * Rutas a los diferentes endpoints de la API.
 	 */
-	.get('/health', async (c) => {
+	.get('/', async (c) => {
 		const traceId = c.get('traceId');
 		const tursoClient = getTursoClient(c);
 
-		const { rowsAffected, columnTypes, lastInsertRowid, columns, rows } =
-			await tursoClient.execute({
-				sql: /* sql */ `SELECT * FROM elements;`,
-				args: [],
-			});
+		return c.json({
+			message: `I'm running on Cloudflare Workers.`,
+			result: await new DbService<Element>(tursoClient).getAll(),
+			traceId,
+		});
+	})
 
-		const data = rows.map((row) =>
-			columns.reduce((acc, key, idx) => {
-				Reflect.set(acc, key, row[idx]);
-				return acc;
-			}, {})
-		);
+	.get('/:id', zValidator('param', idSchema), async (c) => {
+		const traceId = c.get('traceId');
+		const tursoClient = getTursoClient(c);
+		const { id } = c.req.valid('param');
 
 		return c.json({
 			message: `I'm running on Cloudflare Workers.`,
-			result: { data, meta: { rowsAffected, columnTypes, lastInsertRowid } },
+			result: await new DbService<Element>(tursoClient).getById(Number(id)),
 			traceId,
 		});
 	})
@@ -74,6 +87,6 @@ export const api = new Hono<AppEnv>()
 				details: { error, cause: error.cause },
 				traceId,
 			},
-			500
+			error instanceof HTTPException ? error.status : 500
 		);
 	});

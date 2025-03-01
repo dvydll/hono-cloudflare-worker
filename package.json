@@ -5,6 +5,7 @@
 		"deploy": "wrangler deploy --minify"
 	},
 	"dependencies": {
+		"@hono/zod-validator": "^0.4.3",
 		"@libsql/client": "^0.14.0",
 		"hono": "^4.7.2"
 	},
