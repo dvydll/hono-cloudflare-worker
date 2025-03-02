@@ -13,7 +13,7 @@ export const traceIdMiddleware: MiddlewareHandler<AppEnv> = createMiddleware(
 	}
 );
 
-export const getTraceId = async (c: Context<AppEnv>) => {
+export const getTraceId = (c: Context<AppEnv>) => {
 	const traceId = c.get(TRACE_ID_KEY);
 	if (!traceId) throw new Error('No se ha generado el traceId');
 	return traceId;
