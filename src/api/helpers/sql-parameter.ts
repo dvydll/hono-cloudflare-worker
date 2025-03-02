@@ -8,7 +8,7 @@ type SQLValue =
 	| null
 	| (boolean | string | number | bigint | null | undefined)[];
 
-export const ACCEPTED_ADAPTERS = {
+export const DATABASE_DRIVERS = {
 	POSTGRE_SQL: 'postgresql',
 	MY_SQL: 'mysql',
 	SQL_SERVER: 'mssql',
@@ -82,19 +82,19 @@ export class SQLParameter {
 			placeholder?: string | string[];
 			index?: number;
 		},
-		{ adapter = ACCEPTED_ADAPTERS.POSTGRE_SQL }: { adapter?: string } = {}
+		{ driver = DATABASE_DRIVERS.SQLITE }: { driver?: string } = {}
 	) {
 		const isArrayValue = Array.isArray(value);
 
-		placeholder ??= this.#generatePlaceholders({ value, index, adapter });
+		placeholder ??= this.#generatePlaceholders({ value, index, driver });
 		operator ??= isArrayValue ? 'IN' : '=';
 		operator = operator.toUpperCase();
 
-		const validOperatorsRegexp = this.#getValidOperatorsRegexp(adapter);
+		const validOperatorsRegexp = this.#getValidOperatorsRegexp(driver);
 
 		if (!validOperatorsRegexp.test(operator))
 			throw new ValidationError(`Operador '${operator}' no admitido`, {
-				cause: { field, value, operator, index, adapter },
+				cause: { field, value, operator, index, driver },
 			});
 
 		if (operator.includes('BETWEEN') && (!isArrayValue || value.length !== 2))
@@ -240,52 +240,52 @@ export class SQLParameter {
 	#generatePlaceholders({
 		value,
 		index,
-		adapter,
+		driver,
 	}: {
-		adapter: string;
+		driver: string;
 		value?: SQLValue;
 		index: number;
 	}) {
-		switch (adapter) {
-			case ACCEPTED_ADAPTERS.POSTGRE_SQL:
+		switch (driver) {
+			case DATABASE_DRIVERS.POSTGRE_SQL:
 				return Array.isArray(value)
 					? value.map((_, i) => `$${index + i}`)
 					: [`$${index}`];
 
-			case ACCEPTED_ADAPTERS.MY_SQL:
-			case ACCEPTED_ADAPTERS.SQLITE:
+			case DATABASE_DRIVERS.MY_SQL:
+			case DATABASE_DRIVERS.SQLITE:
 				return Array.isArray(value) ? value.map(() => `?`) : [`?`];
 
-			case ACCEPTED_ADAPTERS.SQL_SERVER:
+			case DATABASE_DRIVERS.SQL_SERVER:
 				return Array.isArray(value)
-					? value.map((_, i) => `@${index + i}`)
-					: [`@${index}`];
+					? value.map((_, i) => `@param${index + i}`)
+					: [`@param${index}`];
 
 			default:
-				throw new Error(`El adaptador '${adapter}' no está implementado`);
+				throw new Error(`El adaptador '${driver}' no está implementado`);
 		}
 	}
 
-	#getValidOperatorsRegexp(adapter: string) {
-		switch (adapter) {
-			case ACCEPTED_ADAPTERS.POSTGRE_SQL:
+	#getValidOperatorsRegexp(driver: string) {
+		switch (driver) {
+			case DATABASE_DRIVERS.POSTGRE_SQL:
 				return new RegExp(
 					`^(${Object.values(SQLParameter.PG_OPERATORS).join('|')})$`
 				);
 
-			case ACCEPTED_ADAPTERS.MY_SQL:
-			case ACCEPTED_ADAPTERS.SQLITE:
+			case DATABASE_DRIVERS.MY_SQL:
+			case DATABASE_DRIVERS.SQLITE:
 				return new RegExp(
 					`^(${Object.values(SQLParameter.MYSQL_OPERATORS).join('|')})$`
 				);
 
-			case ACCEPTED_ADAPTERS.SQL_SERVER:
+			case DATABASE_DRIVERS.SQL_SERVER:
 				return new RegExp(
 					`^(${Object.values(SQLParameter.MSSQL_OPERATORS).join('|')})$`
 				);
 
 			default:
-				throw new Error(`El adaptador '${adapter}' no está implementado`);
+				throw new Error(`El adaptador '${driver}' no está implementado`);
 		}
 	}
 }

@@ -4,6 +4,7 @@ import type { AppEnv } from 'types';
 
 import { createClient } from '@libsql/client/web';
 import { createMiddleware } from 'hono/factory';
+import { DbService } from '../services/db-service';
 
 const TURSO_CLIENT_KEY = 'tursoClient';
 
@@ -29,4 +30,13 @@ export const getTursoClient = (c: Context<AppEnv>) => {
 	const tursoClient = c.get(TURSO_CLIENT_KEY);
 	if (!tursoClient) throw new Error('No se ha inicializado el contexto de DB');
 	return tursoClient;
+};
+
+export const getDbService = <T extends { id: T['id'] }>(
+	c: Context<AppEnv>,
+	table: string
+) => {
+	const tursoClient = c.get(TURSO_CLIENT_KEY);
+	if (!tursoClient) throw new Error('No se ha inicializado el contexto de DB');
+	return new DbService<T>(tursoClient, table);
 };

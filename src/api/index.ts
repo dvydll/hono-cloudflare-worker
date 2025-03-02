@@ -7,15 +7,19 @@ import { timeout } from 'hono/timeout';
 import { z } from 'zod';
 
 import type { AppEnv } from 'types';
-import type { Element } from './schemas/index';
+import { elementSchema, type Element } from './schemas/index';
 
 import { sql } from './helpers/sql-literal';
-import { traceIdMiddleware } from './middlewares/trace-id.middleware';
+import { SQLParameter } from './helpers/sql-parameter';
 import {
-	getTursoClient,
+	getTraceId,
+	traceIdMiddleware,
+} from './middlewares/trace-id.middleware';
+import {
+	getDbService,
 	tursoClient,
 } from './middlewares/turso-client.middleware';
-import { DbService, ZipDto } from './services/db-service';
+import { ZipDto } from './services/db-service';
 
 const idSchema = z.object({
 	id: z.string().regex(/^\d+$/, { message: 'El id debe ser un número.' }),
@@ -37,37 +41,53 @@ export const api = new Hono<AppEnv>()
 	 * Rutas a los diferentes endpoints de la API.
 	 */
 	.get('/', async (c) => {
-		const traceId = c.get('traceId');
-		const tursoClient = getTursoClient(c);
-		const { elementName, zip } = c.req.query();
+		const db = getDbService<Element>(c, 'elements');
+		const { zip, ...rest } = c.req.query();
+		const statement = sql`SELECT * FROM elements`;
 
-		const queryResult = elementName
-			? await new DbService<Element>(tursoClient).getByQuery(
-					sql`SELECT * FROM elements WHERE elementName = ${elementName}`
-			  )
-			: await new DbService<Element>(tursoClient).getAll();
+		Object.entries(rest).forEach(([field, val], idx) => {
+			const value = val.includes(',') ? val.split(',') : val;
+			const param = new SQLParameter({ field, value });
+			const { sql: query, args } =
+				idx === 0 ? sql` WHERE ${param}` : sql` AND ${param}`;
 
+			statement.sql += query;
+			statement.args.push(...args);
+		});
+		// aplana los argumentos de la sentencia porque el driver de sqlite no soporta los arrays
+		statement.args = statement.args.flat(Infinity);
+
+		const queryResult = await db.getByQuery(statement);
 		return c.json({
 			message: `I'm running on Cloudflare Workers.`,
 			result: Boolean(zip) ? new ZipDto<Element>(queryResult) : queryResult,
-			traceId,
+			traceId: getTraceId(c),
 		});
 	})
 
 	.get('/:id', zValidator('param', idSchema), async (c) => {
-		const traceId = c.get('traceId');
-		const tursoClient = getTursoClient(c);
+		const db = getDbService<Element>(c, 'elements');
 		const { id } = c.req.valid('param');
 		const { zip } = c.req.query();
 
-		const queryResult = await new DbService<Element>(tursoClient).getById(
-			Number(id)
-		);
+		const queryResult = await db.getById(Number(id));
 
 		return c.json({
 			message: `I'm running on Cloudflare Workers.`,
 			result: Boolean(zip) ? new ZipDto<Element>(queryResult) : queryResult,
-			traceId,
+			traceId: getTraceId(c),
+		});
+	})
+
+	.post('/', zValidator('json', elementSchema), async (c) => {
+		const body = c.req.valid('json');
+		const { zip } = c.req.query();
+		const db = getDbService<Element>(c, 'elements');
+		const queryResult = await db.create(body);
+		return c.json({
+			message: `I'm running on Cloudflare Workers.`,
+			result: Boolean(zip) ? new ZipDto<Element>(queryResult) : queryResult,
+			traceId: getTraceId(c),
 		});
 	})
 

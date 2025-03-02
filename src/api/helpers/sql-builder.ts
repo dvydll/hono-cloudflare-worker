@@ -1,7 +1,5 @@
 import { Condition, ConditionType } from './condition.js';
-import { SQLParameter } from './sql-parameter.js';
-
-class NotImplementedError extends Error {}
+import { DATABASE_DRIVERS, SQLParameter } from './sql-parameter.js';
 
 type QueryParts = {
 	schema?: string;
@@ -77,20 +75,18 @@ export class SQLBuilder {
 		return query;
 	}
 
-	#queryParts: QueryParts;
-	#values: any[];
 	#idxGenerator: Generator<number>;
+	#queryParts: QueryParts = {
+		schema: '',
+		table: '',
+		fields: [],
+		sqlWhereConditions: [],
+		whereConditions: [],
+	};
+	#values: any[] = [];
 
-	constructor(idx = 1) {
+	constructor(private driver: string = DATABASE_DRIVERS.SQLITE, idx = 1) {
 		this.#idxGenerator = nextIndex(idx);
-		this.#values = [];
-		this.#queryParts = {
-			schema: '',
-			table: '',
-			fields: [],
-			sqlWhereConditions: [],
-			whereConditions: [],
-		};
 	}
 
 	get queryParts() {
@@ -126,12 +122,15 @@ export class SQLBuilder {
 			this.#values.push(value);
 		}
 
-		const whereParam = new SQLParameter({
-			field,
-			value,
-			operator,
-			index: this.#getNextIndex(),
-		});
+		const whereParam = new SQLParameter(
+			{
+				field,
+				value,
+				operator,
+				index: this.#getNextIndex(),
+			},
+			{ driver: this.driver }
+		);
 
 		switch (condition) {
 			case ConditionType.AND:
@@ -151,11 +150,11 @@ export class SQLBuilder {
 	}
 
 	whereGroup(
-		callback: (qb: SQLBuilder, index: number) => void,
+		callback: (sqlb: SQLBuilder, index: number) => void,
 		condition = ConditionType.AND
 	) {
 		const nextIndex = this.#getNextIndex();
-		const groupBuilder = new SQLBuilder(nextIndex);
+		const groupBuilder = new SQLBuilder(this.driver, nextIndex);
 		callback(groupBuilder, nextIndex);
 		const groupConditions = groupBuilder.queryParts.whereConditions;
 		this.#queryParts.whereConditions.push(

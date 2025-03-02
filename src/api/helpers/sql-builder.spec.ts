@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { Condition, ConditionType } from './condition';
 import { SQLBuilder } from './sql-builder';
+import { DATABASE_DRIVERS } from './sql-parameter';
 
 describe('SQLBuilder', () => {
 	test('should initialize with empty query parts', () => {
@@ -98,7 +99,7 @@ describe('SQLBuilder', () => {
 	});
 
 	test('should build a simple query', () => {
-		const query = new SQLBuilder()
+		const query = new SQLBuilder(DATABASE_DRIVERS.POSTGRE_SQL)
 			.table('users', 'public')
 			.fields('username', 'age')
 			.where({ field: 'id', value: 1 })

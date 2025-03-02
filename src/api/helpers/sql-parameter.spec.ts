@@ -1,19 +1,19 @@
 import { describe, expect, test } from 'vitest';
 import { SQLParameter } from './sql-parameter'; // Ajusta la ruta según tu estructura
 
-const adapters = ['postgresql', 'mysql', 'mssql'];
+const drivers = ['postgresql', 'mysql', 'mssql'];
 
 describe('SQLParameter', () => {
-	test('Debe crear instancias correctamente con diferentes adaptadores', () => {
-		adapters.forEach((adapter) => {
+	test('Debe crear instancias correctamente con diferentes drivers', () => {
+		drivers.forEach((driver) => {
 			const param = new SQLParameter(
 				{ field: 'age', operator: '=', value: 30, index: 1 },
-				{ adapter }
+				{ driver }
 			);
 			expect(param.field).toBe('age');
 			expect(param.operator).toBe('=');
 			expect(param.value).toBe(30);
-			switch (adapter) {
+			switch (driver) {
 				case 'postgresql':
 					expect(param.placeholder).toBe('$1');
 					break;
@@ -21,7 +21,7 @@ describe('SQLParameter', () => {
 					expect(param.placeholder).toBe('?');
 					break;
 				case 'mssql':
-					expect(param.placeholder).toBe('@1');
+					expect(param.placeholder).toBe('@param1');
 					break;
 			}
 		});
@@ -32,7 +32,7 @@ describe('SQLParameter', () => {
 			() =>
 				new SQLParameter(
 					{ field: 'age', operator: 'INVALID', value: 30, index: 1 },
-					{ adapter: 'postgresql' }
+					{ driver: 'postgresql' }
 				)
 		).toThrow();
 	});
@@ -40,48 +40,52 @@ describe('SQLParameter', () => {
 	test('Debe generar placeholders correctamente', () => {
 		// PostgreSQL
 		const paramPG = new SQLParameter(
-			{ field: 'age', operator: '=', value: 30, index: 1 }
-			// { adapter: 'postgresql' }
+			{ field: 'age', operator: '=', value: 30, index: 1 },
+			{ driver: 'postgresql' }
 		);
 		expect(paramPG.placeholder).toEqual('$1');
 
 		const paramPGmulti = new SQLParameter(
 			{ field: 'age', operator: 'IN', value: [30, 40, 50], index: 1 },
-			{ adapter: 'postgresql' }
+			{ driver: 'postgresql' }
 		);
 		expect(paramPGmulti.placeholder).toEqual(['$1', '$2', '$3']);
 
 		// MySQL
 		const paramMySQL = new SQLParameter(
 			{ field: 'age', operator: '=', value: 30, index: 1 },
-			{ adapter: 'mysql' }
+			{ driver: 'mysql' }
 		);
 		expect(paramMySQL.placeholder).toEqual('?');
 
 		const paramMySQLmulti = new SQLParameter(
 			{ field: 'age', operator: 'IN', value: [30, 40, 50], index: 1 },
-			{ adapter: 'mysql' }
+			{ driver: 'mysql' }
 		);
 		expect(paramMySQLmulti.placeholder).toEqual(['?', '?', '?']);
 
 		// SQL Server
 		const paramMSSQL = new SQLParameter(
 			{ field: 'age', operator: '=', value: 30, index: 1 },
-			{ adapter: 'mssql' }
+			{ driver: 'mssql' }
 		);
-		expect(paramMSSQL.placeholder).toEqual('@1');
+		expect(paramMSSQL.placeholder).toEqual('@param1');
 
 		const paramMSSQLmulti = new SQLParameter(
 			{ field: 'age', operator: 'IN', value: [30, 40, 50], index: 1 },
-			{ adapter: 'mssql' }
+			{ driver: 'mssql' }
 		);
-		expect(paramMSSQLmulti.placeholder).toEqual(['@1', '@2', '@3']);
+		expect(paramMSSQLmulti.placeholder).toEqual([
+			'@param1',
+			'@param2',
+			'@param3',
+		]);
 	});
 
 	test('Debe manejar valores como arrays correctamente', () => {
 		const param = new SQLParameter(
 			{ field: 'id', operator: 'IN', value: [1, 2, 3], index: 1 },
-			{ adapter: 'postgresql' }
+			{ driver: 'postgresql' }
 		);
 		expect(param.placeholder).toEqual(['$1', '$2', '$3']);
 	});
@@ -89,7 +93,7 @@ describe('SQLParameter', () => {
 	test('Debe retornar el string correcto en toString()', () => {
 		const param = new SQLParameter(
 			{ field: 'age', operator: '>=', value: 18, index: 1 },
-			{ adapter: 'postgresql' }
+			{ driver: 'postgresql' }
 		);
 		expect(param.toString()).toBe('age >= $1');
 	});
