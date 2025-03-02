@@ -6,15 +6,16 @@ import { logger } from 'hono/logger';
 import { timeout } from 'hono/timeout';
 import { z } from 'zod';
 
-import type { AppEnv } from 'hono-cf-worker-template';
+import type { AppEnv } from 'types';
 import type { Element } from './schemas/index';
 
+import { sql } from './helpers/sql-literal';
 import { traceIdMiddleware } from './middlewares/trace-id.middleware';
 import {
 	getTursoClient,
 	tursoClient,
 } from './middlewares/turso-client.middleware';
-import { DbService } from './services/db-service';
+import { DbService, ZipDto } from './services/db-service';
 
 const idSchema = z.object({
 	id: z.string().regex(/^\d+$/, { message: 'El id debe ser un número.' }),
@@ -38,10 +39,17 @@ export const api = new Hono<AppEnv>()
 	.get('/', async (c) => {
 		const traceId = c.get('traceId');
 		const tursoClient = getTursoClient(c);
+		const { elementName, zip } = c.req.query();
+
+		const queryResult = elementName
+			? await new DbService<Element>(tursoClient).getByQuery(
+					sql`SELECT * FROM elements WHERE elementName = ${elementName}`
+			  )
+			: await new DbService<Element>(tursoClient).getAll();
 
 		return c.json({
 			message: `I'm running on Cloudflare Workers.`,
-			result: await new DbService<Element>(tursoClient).getAll(),
+			result: Boolean(zip) ? new ZipDto<Element>(queryResult) : queryResult,
 			traceId,
 		});
 	})
@@ -50,10 +58,15 @@ export const api = new Hono<AppEnv>()
 		const traceId = c.get('traceId');
 		const tursoClient = getTursoClient(c);
 		const { id } = c.req.valid('param');
+		const { zip } = c.req.query();
+
+		const queryResult = await new DbService<Element>(tursoClient).getById(
+			Number(id)
+		);
 
 		return c.json({
 			message: `I'm running on Cloudflare Workers.`,
-			result: await new DbService<Element>(tursoClient).getById(Number(id)),
+			result: Boolean(zip) ? new ZipDto<Element>(queryResult) : queryResult,
 			traceId,
 		});
 	})

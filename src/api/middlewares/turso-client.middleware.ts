@@ -1,6 +1,6 @@
 import type { Config as LibsqlConfig } from '@libsql/client/web';
 import type { Context, MiddlewareHandler } from 'hono';
-import type { AppEnv } from 'hono-cf-worker-template';
+import type { AppEnv } from 'types';
 
 import { createClient } from '@libsql/client/web';
 import { createMiddleware } from 'hono/factory';

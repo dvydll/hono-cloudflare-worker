@@ -1,7 +1,7 @@
 import { Context } from 'hono';
 import { jsxRenderer } from 'hono/jsx-renderer';
 
-import { AppEnv } from 'hono-cf-worker-template';
+import { AppEnv } from 'types';
 
 export const BaseLayout = jsxRenderer(
 	({ children }, c: Context<AppEnv>) => {

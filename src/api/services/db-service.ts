@@ -1,45 +1,65 @@
-import type { Client as LibsqlClient, Row } from '@libsql/client/web';
+import type {
+	InStatement,
+	Client as LibsqlClient,
+	ResultSet,
+	Row,
+} from '@libsql/client/web';
+import { HTTPException } from 'hono/http-exception';
+import { z } from 'zod';
 
-export class DbService<T> {
+const idSchema = z.number().or(z.string()).or(z.bigint());
+
+export class DbService<T extends { id: T['id'] }> {
 	constructor(private client: LibsqlClient) {}
 
-	async getAll(): Promise<{
-		data: T[];
-		meta: {
-			columnTypes: string[];
-			rowsAffected: number;
-			lastInsertRowid?: bigint;
-		};
-	}> {
-		const { columns, rows, ...rest } = await this.client.execute({
+	async getAll() {
+		return await this.client.execute({
 			sql: /* sql */ `SELECT * FROM elements;`,
 			args: [],
 		});
-
-		return { data: this.#zip(columns, rows), meta: { ...rest } };
 	}
 
-	async getById(id: number): Promise<{
-		data: T[];
-		meta: {
-			columnTypes: string[];
-			rowsAffected: number;
-			lastInsertRowid?: bigint;
-		};
-	}> {
-		const { columns, rows, ...rest } = await this.client.execute({
-			sql: /* sql */ `SELECT * FROM elements WHERE id = ?;`,
-			args: [id],
+	async getById(id: T['id']) {
+		const $id = idSchema.parse(id);
+		const result = await this.client.execute({
+			sql: /* sql */ `SELECT * FROM elements WHERE id = $id;`,
+			args: { $id },
 		});
 
-		return { data: this.#zip(columns, rows), meta: { ...rest } };
+		if (result.rows.length === 0)
+			throw new HTTPException(404, {
+				message: 'Element not found',
+				cause: { id },
+			});
+
+		return result;
 	}
 
-	#zip(columns: string[], rows: Row[], initialValue: T = {} as T): T[] {
+	async getByQuery(statement: InStatement) {
+		const result = await this.client.execute(statement);
+
+		if (result.rows.length === 0)
+			throw new HTTPException(404, {
+				message: 'Element not found',
+				cause: { statement },
+			});
+
+		return result;
+	}
+}
+
+export class ZipDto<T> {
+	data: T[];
+	meta: Omit<ResultSet, 'rows' | 'columns'>;
+
+	constructor({ columns, rows, ...rest }: ResultSet) {
+		this.data = this.#zip(columns, rows);
+		this.meta = rest;
+	}
+
+	#zip(columns: string[], rows: Row[]): T[] {
 		return rows.map((row) =>
-			columns.reduce((acc, key, idx) => ({ ...acc, [key]: row[idx] }), {
-				...initialValue,
-			})
+			columns.reduce((acc, key, idx) => ({ ...acc, [key]: row[idx] }), {} as T)
 		);
 	}
 }

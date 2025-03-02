@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 
-import type { AppEnv } from 'hono-cf-worker-template';
+import type { AppEnv } from 'types';
 
 import { api } from './api';
 import { app } from './app';

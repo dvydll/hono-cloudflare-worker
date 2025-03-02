@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 
-import type { AppEnv } from 'hono-cf-worker-template';
+import type { AppEnv } from 'types';
 import { BaseLayout } from './layouts/BaseLayout';
 
 export const app = new Hono<AppEnv>()

@@ -1,5 +1,5 @@
 import type { Context, MiddlewareHandler } from 'hono';
-import type { AppEnv } from 'hono-cf-worker-template';
+import type { AppEnv } from 'types';
 
 import { createMiddleware } from 'hono/factory';
 

@@ -1,5 +1,9 @@
 {
 	"name": "hono-cf-worker-template",
+	"imports": {
+		"#/*": "./src/*"
+	},
+	"types": "./types/index.d.ts",
 	"scripts": {
 		"dev": "wrangler dev",
 		"deploy": "wrangler deploy --minify"
@@ -11,6 +15,7 @@
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^4.20250214.0",
+		"vitest": "^3.0.7",
 		"wrangler": "^3.109.2"
 	}
 }
