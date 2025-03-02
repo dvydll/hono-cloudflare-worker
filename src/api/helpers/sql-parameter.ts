@@ -1,12 +1,8 @@
 class ValidationError extends Error {}
 
-type SQLValue =
-	| boolean
-	| string
-	| number
-	| bigint
-	| null
-	| (boolean | string | number | bigint | null | undefined)[];
+export type Value = null | string | number | bigint | ArrayBuffer;
+export type InValue = Value | boolean | Uint8Array | Date;
+export type SQLValue = InValue | InValue[];
 
 export const DATABASE_DRIVERS = {
 	POSTGRE_SQL: 'postgresql',
@@ -64,7 +60,7 @@ export class SQLParameter {
 
 	#field: string;
 	#operator: string;
-	#value: SQLValue;
+	#value?: SQLValue;
 	#placeholder: string[];
 	// #validOperatorsRegexp: RegExp;
 
@@ -105,11 +101,13 @@ export class SQLParameter {
 
 		this.#field = field;
 		this.#operator = operator;
-		this.#value = isArrayValue ? value : [value];
 		this.#placeholder = Array.isArray(placeholder)
 			? placeholder
 			: [placeholder];
-		// this.#validOperatorsRegexp = validOperatorsRegexp;
+		if (value !== undefined)
+			this.#value = isArrayValue
+				? value.filter((v) => v !== undefined)
+				: [value];
 	}
 
 	get field() {
@@ -131,80 +129,6 @@ export class SQLParameter {
 			? this.#value[0]
 			: this.#value;
 	}
-
-	// set field(value) {
-	// 	this.#field = value;
-	// }
-
-	// set operator(value) {
-	// 	value = value.toUpperCase();
-
-	// 	if (this.#validOperatorsRegexp.test(value))
-	// 		throw new ValidationError(`Operador '${value}' no admitido`, {
-	// 			cause: { operator: value },
-	// 		});
-
-	// 	this.#operator = value;
-	// }
-
-	// set placeholder(newValue) {
-	// 	let oldValue = this.#value;
-
-	// 	// Si no es un array, se convierte en un array con un solo elemento
-	// 	if (!Array.isArray(oldValue))
-	// 		oldValue = [oldValue].filter((v) => v === undefined);
-
-	// 	if (!Array.isArray(newValue))
-	// 		newValue = [newValue].filter((v) => v === undefined);
-
-	// 	if (this.#operator.includes('BETWEEN') && newValue.length !== 2)
-	// 		throw new ValidationError(
-	// 			`El operador '${this.#operator}' requiere exactamente dos placeholders`,
-	// 			{ cause: { operator: this.#operator, newValue } }
-	// 		);
-
-	// 	if (newValue.length !== oldValue.length)
-	// 		throw new ValidationError(
-	// 			`El número de placeholders debe coincidir con el número de valores`,
-	// 			{ cause: { oldValue: this.#placeholder, newValue } }
-	// 		);
-
-	// 	if (newValue.some((newPh, idx) => !newPh.includes(this.#placeholder[idx])))
-	// 		// Validar que los nuevos placeholder contenga los viejos
-	// 		throw new ValidationError(
-	// 			`El nuevo placeholder '${newValue}' debe contener '${
-	// 				this.#placeholder
-	// 			}'`,
-	// 			{ cause: { oldValue: this.#placeholder, newValue } }
-	// 		);
-
-	// 	this.#placeholder = newValue;
-	// }
-
-	// set value(newValue) {
-	// 	let oldValue = this.#value;
-
-	// 	// Si no es un array, se convierte en un array con un solo elemento
-	// 	if (!Array.isArray(newValue))
-	// 		newValue = [newValue].filter((v) => v === undefined);
-
-	// 	if (!Array.isArray(oldValue))
-	// 		oldValue = [oldValue].filter((v) => v === undefined);
-
-	// 	if (this.#operator.includes('BETWEEN') && newValue.length !== 2)
-	// 		throw new ValidationError(
-	// 			`El operador '${this.#operator}' requiere exactamente dos valores`,
-	// 			{ cause: { operator: this.#operator, newValue } }
-	// 		);
-
-	// 	if (newValue.length !== oldValue?.length)
-	// 		throw new ValidationError(
-	// 			`El número de nuevos valores debe coincidir con el número de valores antiguo`,
-	// 			{ cause: { oldValue, newValue } }
-	// 		);
-
-	// 	this.#value = newValue;
-	// }
 
 	toString(subQuery = null) {
 		switch (this.#operator) {

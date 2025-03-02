@@ -4,11 +4,12 @@ import { cors } from 'hono/cors';
 import { HTTPException } from 'hono/http-exception';
 import { logger } from 'hono/logger';
 import { timeout } from 'hono/timeout';
+import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { z } from 'zod';
 
 import type { AppEnv } from 'types';
-import { elementSchema, type Element } from './schemas/index';
-
+import { WrongResponseDto } from './dto/wrong-response.dto';
+import { ZipDto } from './dto/zip.dto';
 import { sql } from './helpers/sql-literal';
 import { SQLParameter } from './helpers/sql-parameter';
 import {
@@ -19,10 +20,11 @@ import {
 	getDbService,
 	tursoClient,
 } from './middlewares/turso-client.middleware';
-import { ZipDto } from './services/db-service';
+import { elementSchema, type Element } from './schemas/index';
 
 const idSchema = z.object({
 	id: z.string().regex(/^\d+$/, { message: 'El id debe ser un número.' }),
+	zip: z.enum(['true', 'false']).optional(),
 });
 
 export const api = new Hono<AppEnv>()
@@ -58,25 +60,35 @@ export const api = new Hono<AppEnv>()
 		statement.args = statement.args.flat(Infinity);
 
 		const queryResult = await db.getByQuery(statement);
-		return c.json({
-			message: `I'm running on Cloudflare Workers.`,
-			result: Boolean(zip) ? new ZipDto<Element>(queryResult) : queryResult,
-			traceId: getTraceId(c),
-		});
+		const result = Boolean(zip)
+			? new ZipDto<Element>(queryResult)
+			: queryResult;
+		return c.json(result);
+	})
+
+	.get('/count', async (c) => {
+		const { atomicNumber } = c.req.query();
+		const db = getDbService<Element>(c, 'elements');
+		const queryResult = await db.countWhere(
+			new SQLParameter({
+				field: 'atomicNumber',
+				value: atomicNumber.includes(',')
+					? atomicNumber.split(',')
+					: atomicNumber,
+			})
+		);
+		return c.json(new ZipDto<{ count: number }>(queryResult));
 	})
 
 	.get('/:id', zValidator('param', idSchema), async (c) => {
 		const db = getDbService<Element>(c, 'elements');
 		const { id } = c.req.valid('param');
 		const { zip } = c.req.query();
-
 		const queryResult = await db.getById(Number(id));
-
-		return c.json({
-			message: `I'm running on Cloudflare Workers.`,
-			result: Boolean(zip) ? new ZipDto<Element>(queryResult) : queryResult,
-			traceId: getTraceId(c),
-		});
+		const result = Boolean(zip)
+			? new ZipDto<Element>(queryResult)
+			: queryResult;
+		return c.json(result);
 	})
 
 	.post('/', zValidator('json', elementSchema), async (c) => {
@@ -84,28 +96,47 @@ export const api = new Hono<AppEnv>()
 		const { zip } = c.req.query();
 		const db = getDbService<Element>(c, 'elements');
 		const queryResult = await db.create(body);
-		return c.json({
-			message: `I'm running on Cloudflare Workers.`,
-			result: Boolean(zip) ? new ZipDto<Element>(queryResult) : queryResult,
-			traceId: getTraceId(c),
-		});
+		c.status(201);
+		return Boolean(zip)
+			? c.json(new ZipDto<Element>(queryResult))
+			: c.json({ message: 'created', data: [body] });
+	})
+
+	.put(
+		'/:id',
+		zValidator('param', idSchema),
+		zValidator('json', elementSchema),
+		async (c) => {
+			const { id, zip } = c.req.valid('param');
+			const body = c.req.valid('json');
+			const db = getDbService<Element>(c, 'elements');
+			const queryResult = await db.update({ ...body, id: Number(id) });
+			return Boolean(zip)
+				? c.json(new ZipDto<Element>(queryResult))
+				: c.json(queryResult);
+		}
+	)
+
+	.delete('/:id', zValidator('param', idSchema), async (c) => {
+		const { id, zip } = c.req.valid('param');
+		const db = getDbService<Element>(c, 'elements');
+		const queryResult = await db.delete(Number(id));
+		const result = Boolean(zip)
+			? new ZipDto<Element>(queryResult)
+			: queryResult;
+		return c.json(result);
 	})
 
 	/**
 	 * Si busca una ruta que no existe, se lanza una respuesta 404.
 	 */
 	.notFound((c) => {
-		const { path } = c.req;
-		const traceId = c.get('traceId');
-		console.error(`[api.notFound] [${traceId}]`, { path });
-		return c.json(
-			{
-				message: 'No se encontro la ruta',
-				details: { path },
-				traceId,
-			},
-			404
-		);
+		const { path, method } = c.req;
+		const traceId = getTraceId(c);
+		const details = { path, method, status: 404 as ContentfulStatusCode };
+		const wrong = new WrongResponseDto('No se encontro la ruta', details);
+		console.error(`[api.notFound] [${traceId}]`, wrong);
+		return c.json(wrong, details.status);
 	})
 
 	/**
@@ -114,12 +145,8 @@ export const api = new Hono<AppEnv>()
 	.onError((error, c) => {
 		const traceId = c.get('traceId');
 		console.error(`[api.error] [${traceId}]`, error);
-		return c.json(
-			{
-				message: error.message,
-				details: { error, cause: error.cause },
-				traceId,
-			},
-			error instanceof HTTPException ? error.status : 500
-		);
+		const { message, cause } = error;
+		const status = error instanceof HTTPException ? error.status : 500;
+		const wrong = new WrongResponseDto(message, { error, cause, status });
+		return c.json(wrong, status);
 	});

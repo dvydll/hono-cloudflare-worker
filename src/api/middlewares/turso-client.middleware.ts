@@ -32,11 +32,9 @@ export const getTursoClient = (c: Context<AppEnv>) => {
 	return tursoClient;
 };
 
-export const getDbService = <T extends { id: T['id'] }>(
+export const getDbService = <T extends { id?: T['id'] }>(
 	c: Context<AppEnv>,
 	table: string
 ) => {
-	const tursoClient = c.get(TURSO_CLIENT_KEY);
-	if (!tursoClient) throw new Error('No se ha inicializado el contexto de DB');
-	return new DbService<T>(tursoClient, table);
+	return new DbService<T>(getTursoClient(c), table);
 };

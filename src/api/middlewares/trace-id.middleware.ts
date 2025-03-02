@@ -9,6 +9,7 @@ export const traceIdMiddleware: MiddlewareHandler<AppEnv> = createMiddleware(
 	(c, next) => {
 		const traceId = crypto.randomUUID();
 		c.set(TRACE_ID_KEY, traceId);
+		c.res.headers.set('X-Trace-Id', traceId);
 		return next();
 	}
 );
